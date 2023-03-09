@@ -1,6 +1,7 @@
 import express from 'express';
 import { GraphQLBoolean, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLString } from 'graphql';
 import { GraphQLDateTime } from 'graphql-scalars';
+import { GraphQLJSON } from 'graphql-type-json';
 import { isEmpty, uniq } from 'lodash';
 import { OrderItem } from 'sequelize';
 
@@ -12,6 +13,8 @@ import queries from '../../../../lib/queries';
 import { buildSearchConditions } from '../../../../lib/search';
 import models, { Op, sequelize } from '../../../../models';
 import { PayoutMethodTypes } from '../../../../models/PayoutMethod';
+import { validateExpenseCustomData } from '../../../common/expenses';
+import { Unauthorized } from '../../../errors';
 import { loadFxRatesMap } from '../../../loaders/currency-exchange-rate';
 import { ExpenseCollection } from '../../collection/ExpenseCollection';
 import ExpenseStatusFilter from '../../enum/ExpenseStatusFilter';
@@ -161,6 +164,11 @@ const ExpensesCollectionQuery = {
       defaultValue: false,
       description: 'Whether to include expenses from children of the account (Events and Projects)',
     },
+    customData: {
+      type: GraphQLJSON,
+      description:
+        'Only return expenses that contains this custom data. Requires being an admin of the collective, payee or host.',
+    },
   },
   async resolve(_: void, args, req: express.Request): Promise<CollectionReturnType> {
     const where = { [Op.and]: [] };
@@ -295,6 +303,26 @@ const ExpensesCollectionQuery = {
       } else {
         where['status'] = { [Op.notIn]: [expenseStatus.DRAFT, expenseStatus.SPAM] };
       }
+    }
+
+    if (args.customData) {
+      // Check permissions
+      if (!req.remoteUser) {
+        throw new Unauthorized('You need to be logged in to filter by customData');
+      } else if (!fromAccount && !account && !host) {
+        throw new Unauthorized(
+          'You need to filter by at least one of fromAccount, account or host to filter by customData',
+        );
+      } else if (
+        !(fromAccount && req.remoteUser.isAdminOfCollective(fromAccount)) &&
+        !(account && req.remoteUser.isAdminOfCollective(account)) &&
+        !(host && req.remoteUser.isAdmin(host))
+      ) {
+        throw new Unauthorized('You need to be an admin of the fromAccount, account or host to filter by customData');
+      }
+
+      validateExpenseCustomData(args.customData); // To ensure we don't get an invalid type or too long string
+      where['data'] = { [Op.contains]: { customData: args.customData } };
     }
 
     const order = [[args.orderBy.field, args.orderBy.direction]] as OrderItem[];
