@@ -1,4 +1,4 @@
-import { capitalize, compact, find, startCase, uniq } from 'lodash';
+import { capitalize, compact, find, max, startCase, uniq } from 'lodash';
 import moment from 'moment';
 
 import status from '../../constants/expense_status';
@@ -36,13 +36,14 @@ const getExpensesStats = where =>
     where: { ...where, type: { [Op.ne]: expenseType.CHARGE } },
     attributes: [
       'status',
+      'CollectiveId',
       [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
       [sequelize.fn('MAX', sequelize.col('createdAt')), 'lastCreatedAt'],
     ],
-    group: ['status'],
+    group: ['status', 'CollectiveId'],
     order: [['lastCreatedAt', 'desc']],
     raw: true,
-  }) as Promise<(Expense & { count: number; lastCreatedAt: Date })[]>;
+  }) as unknown as Promise<Array<{ count: number; lastCreatedAt: Date; status: status; CollectiveId: number }>>;
 
 const addBooleanCheck = (checks, condition: boolean, ifTrue: SecurityCheck, ifFalse?: SecurityCheck) =>
   condition ? checks.push(ifTrue) : ifFalse ? checks.push(ifFalse) : null;
@@ -61,8 +62,19 @@ const checkExpenseStats = async (
   where,
   { expense, checks, scope, details }: { scope: Scope; details?: string; checks: Array<SecurityCheck>; expense },
 ) => {
-  const platformStats = await getExpensesStats(where);
-  const collectiveStats = await getExpensesStats({ ...where, CollectiveId: expense.CollectiveId });
+  const stats = await getExpensesStats(where);
+  const platformStats = Object.values(
+    stats.reduce((result, value) => {
+      if (result[value.status]) {
+        result[value.status].count += value.count;
+        result[value.status].lastCreatedAt = max([value.lastCreatedAt, result[value.status].lastCreatedAt]);
+      } else {
+        result[value.status] = value;
+      }
+      return result;
+    }, {} as Record<status, { count: number; lastCreatedAt: Date; status: status; CollectiveId: number }>),
+  );
+  const collectiveStats = stats.filter(e => e.CollectiveId === expense.CollectiveId);
 
   // Checks if there was any SPAM or rejects on the platform
   const spam = find(platformStats, { status: status.SPAM });
