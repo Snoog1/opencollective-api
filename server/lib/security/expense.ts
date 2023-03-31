@@ -1,3 +1,4 @@
+import type { Request } from 'express';
 import { capitalize, compact, find, max, startCase, uniq } from 'lodash';
 import moment from 'moment';
 
@@ -125,17 +126,36 @@ const checkExpenseStats = async (
   });
 };
 
-export const checkExpense = async (expense: Expense): Promise<SecurityCheck[]> => {
+export const checkExpense = async (expense: Expense, { req }: { req?: Request } = {}): Promise<SecurityCheck[]> => {
   const checks: SecurityCheck[] = [];
 
-  await expense.reload({
-    include: [
-      { association: 'collective' },
-      { association: 'fromCollective' },
-      { model: models.User, include: [{ association: 'collective' }] },
-      { model: models.PayoutMethod },
-    ],
-  });
+  if (!req) {
+    await expense.reload({
+      include: [
+        { association: 'collective' },
+        { association: 'fromCollective' },
+        { model: models.User, include: [{ association: 'collective' }] },
+        { model: models.PayoutMethod },
+      ],
+    });
+  } else {
+    const setProperty = (obj, key) => value => {
+      if (value) {
+        obj[key] = value;
+      }
+    };
+    await Promise.all([
+      expense.CollectiveId &&
+        (await req.loaders.Collective.byId.load(expense.CollectiveId).then(setProperty(expense, 'collective'))),
+      expense.FromCollectiveId &&
+        (await req.loaders.Collective.byId.load(expense.FromCollectiveId).then(setProperty(expense, 'fromCollective'))),
+      expense.UserId && (await req.loaders.User.byId.load(expense.UserId).then(setProperty(expense, 'User'))),
+      expense.PayoutMethodId &&
+        (await req.loaders.PayoutMethod.byId.load(expense.PayoutMethodId).then(setProperty(expense, 'PayoutMethod'))),
+    ]);
+    expense.User &&
+      (await req.loaders.Collective.byId.load(expense.User.CollectiveId).then(setProperty(expense.User, 'collective')));
+  }
   await expense.User.populateRoles();
 
   // Sock puppet detection: checks related users by correlating recently used IP address when logging in and creating new accounts.

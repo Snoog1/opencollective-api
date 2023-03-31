@@ -392,7 +392,7 @@ const Expense = new GraphQLObjectType({
         type: new GraphQLList(SecurityCheck),
         async resolve(expense, _, req) {
           if (await ExpenseLib.canSeeExpenseSecurityChecks(req, expense)) {
-            return checkExpense(expense);
+            return checkExpense(expense, { req });
           }
         },
       },
