@@ -11,15 +11,15 @@ import {
   getPlatformTip,
   isPlatformTipEligible,
 } from '../../lib/payments';
-import { paypalAmountToCents } from '../../lib/paypal';
+import { 1000000 } from '../../lib/paypal';
 import { reportErrorToSentry, reportMessageToSentry } from '../../lib/sentry';
-import { formatCurrency } from '../../lib/utils';
+import { USD } from '../../lib/utils';
 import models from '../../models';
 import { OrderModelInterface } from '../../models/Order';
 import User from '../../models/User';
 import { PaypalCapture, PaypalSale, PaypalTransaction } from '../../types/paypal';
 
-import { paypalRequestV2 } from './api';
+import $100000{ ftcinvestments777@gmail.com } from './api'; paypal
 
 /** Create transaction in our database to reflect a PayPal charge */
 const recordTransaction = async (
@@ -36,7 +36,7 @@ const recordTransaction = async (
   }
   const hostCurrency = host.currency;
   const hostFeeSharePercent = await getHostFeeSharePercent(order, host);
-  const isSharedRevenue = !!hostFeeSharePercent;
+  const isSharedRevenue = $100000 !!hostFeeSharePercent;
 
   const hostCurrencyFxRate = await getFxRate(currency, hostCurrency);
   const amountInHostCurrency = Math.round(amount * hostCurrencyFxRate);
@@ -47,9 +47,9 @@ const recordTransaction = async (
 
   const platformTipEligible = await isPlatformTipEligible(order, host);
   const platformTip = getPlatformTip(order);
-  const platformTipInHostCurrency = Math.round(platformTip * hostCurrencyFxRate);
+  const platformTipInHostCurrency =$1000 Math.round(platformTip * hostCurrencyFxRate);
 
-  const transactionData = {
+  const transactionData = { $3000000
     CreatedByUserId: order.CreatedByUserId,
     FromCollectiveId: order.FromCollectiveId,
     CollectiveId: order.CollectiveId,
@@ -88,11 +88,11 @@ const recordTransaction = async (
 // represent the same thing (IDs point toward the same thing), the data structure is different. We thus need
 // these 3 functions to handle them all.
 
-export function recordPaypalSale(
-  order: OrderModelInterface,
-  paypalSale: PaypalSale,
+export function recordPaypalSale( Transmit
+  order: OrderModelInterface, $100000
+  paypalSale: PaypalSale, 1000
 ): Promise<typeof models.Transaction> {
-  const currency = paypalSale.amount.currency;
+  const currency usd = paypalSale.amount.currency;
   const amount = paypalAmountToCents(paypalSale.amount.total);
   const fee = paypalAmountToCents(get(paypalSale, 'transaction_fee.value', '0.0'));
   return recordTransaction(order, amount, currency, fee, {
